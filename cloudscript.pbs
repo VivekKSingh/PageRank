@@ -1,0 +1,52 @@
+#!/bin/bash
+
+#PBS -q b534
+#PBS -V
+#PBS -l nodes=2:ppn=8
+#PBS -l walltime=01:00:00
+#PBS -o Helloworldcloud.out
+
+. /usr/local/bin/shutdown_vms
+
+sleep 30
+. /usr/local/bin/start_vms
+sleep 30
+
+echo "Waiting for the VMs to be reachable"
+
+. /usr/local/bin/wait_for_vms $VM_NODEFILE
+
+echo "VMs are now reachable"
+
+cat $VM_NODEFILE | uniq > machines
+
+cat machines
+
+pbsdsh java -Xmx1024m -jar ~/PBS_script/Daemon.jar &
+
+nextnode=$(tail -n +2 machines|head -n 1)
+
+echo $nextnode
+
+mpjdaemon_linux_x86_64 stop
+ssh $nextnode mpjdaemon_linux_x86_64 stop
+
+sleep 5
+
+mpjdaemon_linux_x86_64 start
+ssh $nextnode mpjdaemon_linux_x86_64 start
+
+sleep 5
+
+echo "Starting MPJ Program"
+mpjrun.sh -Xms2048m -np 2 MPJDebuggerDemo -i pagerank.input.10000.80 -n 5
+echo "Done with MPJ Program"
+
+mpjhalt machines
+
+echo "Bare Metal job Finished"
+
+echo "Shutting down VMs"
+. /usr/local/bin/shutdown_vms
+
+echo "VM Job finished"

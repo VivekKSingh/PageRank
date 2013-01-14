@@ -1,0 +1,39 @@
+#!/bin/bash
+
+#PBS -l nodes=2:ppn=1
+#PBS -l walltime=00:10:00
+#PBS -o Helloworld.out
+#PBS -q b534
+
+
+cat $PBS_NODEFILE | uniq > machines
+
+##while read line;do
+ ##ssh $line mpjdaemon_linux_x86_64 stop < /dev/null
+ ##ssh $line mpjdaemon_linux_x86_64 start < /dev/null
+ ##ssh $line hostname < /dev/null
+##done < machines
+
+pbsdsh java -Xmx1024m -jar ~/Daemon.jar &
+
+nextnode=$(tail -n +2 machines|head -n 1)
+
+echo $nextnode
+
+mpjdaemon_linux_x86_64 stop
+ssh $nextnode mpjdaemon_linux_x86_64 stop
+
+sleep 5
+
+mpjdaemon_linux_x86_64 start
+ssh $nextnode mpjdaemon_linux_x86_64 start
+
+sleep 5
+
+echo "Starting MPJ Program"
+mpjrun.sh -Xms2048m -np 2 -dev niodev MPJDebuggerDemo -i pagerank.input.10000.80 -n 100
+echo "Done with MPJ Program"
+
+mpjhalt machines
+
+echo "Bare Metal job Finished"
